@@ -18,10 +18,10 @@ Genome version and annotation :
 
 ### Scripts used for analysis
 
-* [PCA]() analysis
-* [Heatmap]() analysis
+* [PCA](RScript/PCA.R) analysis
+* [Heatmap](RScript/Heatmap.R) analysis
 * All the analysis performed from samplesPerCond.tsv => [Analysis.R](RScript/Analysis.R) 
-* Binarization of the datamatrix => [TableIniatialization.R]()
+* Binarization of the datamatrix => [TableIniatialization.R](RScript/TableIniatialization.R)
 
 ## Authors
 
