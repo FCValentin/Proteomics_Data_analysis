@@ -141,7 +141,7 @@ for (i in 1:length(filenames)){
   Ht[[i]]<-Heatmap(mat[[i]],row_labels = file[row.names(mat[[i]]),"Genes"], row_names_gp = autoGparFontSizeMatrix(nrow(mat[[i]])), top_annotation = ha[[i]],
                    cluster_rows = hclustGeneDE[[i]],col = colHA[[i]],
                    cluster_columns = hclustSampleDE[[i]],name=paste0(strsplit(strsplit(filenames[i],split = "/")[[1]][2],split = ".t")[[1]][1]," (",nrow(mat[[i]])," Proteins)"),column_names_gp = autoGparFontSizeMatrix(ncol(mat[[i]])) )
-  #ecrire(mat[[i]],paste0("results/MatrixHeatmap",paste0(strsplit(strsplit(filenames[i],split = "/")[[1]][2],split = ".t")[[1]][1]),"_Pval_",PVal,"_FoldChange_",FoldChange,".tsv"))
+  ecrire(mat[[i]],paste0("results/MatrixHeatmap",paste0(strsplit(strsplit(filenames[i],split = "/")[[1]][2],split = ".t")[[1]][1]),"_Pval_",PVal,"_FoldChange_",FoldChange,".tsv"))
 }
 
 print("Exporting Heatmap into Heatmap.pdf in Figures folder...")
