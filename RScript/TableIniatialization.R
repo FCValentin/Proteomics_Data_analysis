@@ -1,54 +1,81 @@
-### READ FILES ###
+# =============================================================================
+# proteomics_table_init.R
+# -----------------------------------------------------------------------------
+# Initialise comparison matrices from differential expression TSV files.
+#
+# Outputs:
+#   results/ComparisonTable.tsv        log2FC per protein per comparison
+#   results/BinaryComparisonTable.tsv  +1 / -1 / 0 per protein per comparison
+#
+# Usage:
+#   Rscript proteomics_table_init.R <data_dir>
+#   Or set DATA_DIR below and source() in RStudio.
+#
+# Author  : Valentin FRANCOIS--CAMPION, PhD
+# Contact : valentin.francoiscampion@gmail.com
+# GitHub  : https://github.com/FCValentin/proteomics-quantitative-analysis
+# =============================================================================
 
-# Import some home functions
-source("https://gitlab.univ-nantes.fr/E114424Z/veneR/raw/master/loadFun.R?inline=false")
+source("proteomics_utils.R")
 
-# Set working directory
+# =============================================================================
+# PARAMETERS
+# =============================================================================
 
-#!/usr/bin/env Rscript
-folder <- commandArgs(trailingOnly=TRUE)
-setwd(folder)
+# Root data directory (can be overridden by command-line argument)
+DATA_DIR <- commandArgs(trailingOnly = TRUE)[1]
+if (is.na(DATA_DIR) || DATA_DIR == "") DATA_DIR <- "."
 
-# Import files to use for the analyze
-filenames <- list.files(path="Comparaison", pattern="*.tsv", full.names=TRUE, all.files = TRUE, recursive = FALSE, ignore.case = FALSE, include.dirs = FALSE)
-print("Files used for the analysis :")
-print(filenames)
+EXPR_FILE       <- file.path(DATA_DIR, "data", "dataMatrix.tsv")
+COMPARISONS_DIR <- file.path(DATA_DIR, "Comparaison")
+RESULTS_DIR     <- file.path(DATA_DIR, "results")
 
-# Import proteins background
-ProtNames <- row.names(lire("data/dataMatrix.tsv"))
-print(paste("Total of proteins :", length(ProtNames)))
+# Expected column names in comparison files
+COMP_COLS <- c("Protein", "AVG_Log2_Ratio", "Absolute_AVG_Log2_Ratio",
+               "PValue", "QValue", "PctRatios", "UniProtIds", "Genes",
+               "ProteinName", "PctUniqueTotalPeptide", "PctChange", "Ratio")
 
-# Create data matrix of protein background
-InitTable<-data.frame(row.names = ProtNames)
-RawComparisonTable <- InitTable[order(row.names(InitTable)),]
+# =============================================================================
+# MAIN
+# =============================================================================
 
-print("Matrix initialization...")
+message("=== Comparison Table Initialisation ===")
 
-# Initialization of the table with 0 everywhere
-for (i in 1:length(filenames)){
-  RawComparisonTable<-cbind(RawComparisonTable,0)
-  colnames(RawComparisonTable)[i]<-strsplit(strsplit(filenames[i],split = "/")[[1]][2],split = ".t")[[1]][1]
+# Discover comparison files
+filenames <- list.files(COMPARISONS_DIR, pattern = "\\.tsv$",
+                        full.names = TRUE, recursive = FALSE)
+if (length(filenames) == 0)
+  stop("No .tsv files found in: ", COMPARISONS_DIR)
+message("Comparison files found: ", length(filenames))
+
+# Load protein background
+message("Loading expression matrix...")
+prot_names <- rownames(read_tsv(EXPR_FILE))
+message("Total proteins: ", length(prot_names))
+
+# Initialise empty matrix
+comp_labels <- sapply(filenames, parse_comparison_label)
+comp_table  <- matrix(0, nrow = length(prot_names), ncol = length(filenames),
+                      dimnames = list(sort(prot_names), comp_labels))
+
+# Fill matrix with AVG_Log2_Ratio per comparison
+message("Filling comparison matrix...")
+for (i in seq_along(filenames)) {
+  comp      <- read.table(filenames[i], header = FALSE,
+                          stringsAsFactors = FALSE)
+  colnames(comp) <- COMP_COLS
+  rownames(comp) <- comp$Protein
+  comp           <- comp[order(rownames(comp)), ]
+  shared         <- intersect(rownames(comp), rownames(comp_table))
+  comp_table[shared, i] <- comp[shared, "AVG_Log2_Ratio"]
 }
 
-print("Matrix formating...")
+# Export
+create_dir(RESULTS_DIR)
+comp_df        <- as.data.frame(comp_table)
+binary_df      <- sign(comp_df)   # +1 / -1 / 0
 
-# Replace 0 values by AVG_Log2Ratio value for DE Genes in each comparison
-for (i in 1:length(filenames)){
-  file<-read.table(filenames[i])
-  colnames(file)<-c("Protein","AVG_Log2_Ratio","Absolute_AVG_Log2_Ratio","PValue","QValue","%ofRatios","UniProtIds","Genes","ProteinName","%UniqueTotalPeptide","%Change","Ratio")
-  ordered_file <- file[order(row.names(file)),]
-  RawComparisonTable[row.names(ordered_file),i]<-ordered_file$AVG_Log2_Ratio
-}
+write_tsv(comp_df,   file.path(RESULTS_DIR, "ComparisonTable.tsv"))
+write_tsv(binary_df, file.path(RESULTS_DIR, "BinaryComparisonTable.tsv"))
 
-print("Output the matrix in results Folder as ComparisonTable.tsv ...")
-
-ecrire(RawComparisonTable,"results/ComparisonTable.tsv")
-
-BinaryComparisonTable <- RawComparisonTable
-BinaryComparisonTable[BinaryComparisonTable>0] <- 1
-BinaryComparisonTable[BinaryComparisonTable<0] <- -1
-
-print("Output the binary matrix in results Folder as BinaryComparisonTable.tsv ...")
-
-ecrire(BinaryComparisonTable,"results/BinaryComparisonTable.tsv")
-
+message("Done. Output in: ", RESULTS_DIR)
